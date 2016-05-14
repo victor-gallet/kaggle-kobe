@@ -1,0 +1,64 @@
+---
+title: "Kobe Bryant Shot Selection"
+output:
+  html_document:
+    theme: united
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(dplyr)
+```
+
+# Loading Data
+
+```{r, message = FALSE, warning = FALSE}
+shots = read.csv("data/data.csv", stringsAsFactors = T)
+
+shots$shot_made_flag <- as.factor(shots$shot_made_flag)
+
+train = shots[!is.na(shots$shot_made_flag),]
+test = shots[is.na(shots$shot_made_flag),]
+```
+
+# Exploring Data
+
+```{r names}
+names(shots)
+```
+
+```{r summary}
+summary(shots)
+```
+
+```{r str}
+str(shots)
+```
+
+## Visualization
+
+# a plot to see position by feature
+```{r courtplot}
+courtplot <- function(feat) {
+    feat <- substitute(feat)
+    train %>% 
+    ggplot(aes(x = lon, y = lat)) +
+        geom_point(aes_q(color = feat), alpha = 0.7, size = 3) +
+        ylim(c(33.7, 34.0883)) +
+        scale_color_brewer(palette = "Set1") +
+        theme_void() +
+        ggtitle(paste(feat))
+}
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
