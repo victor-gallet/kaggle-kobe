@@ -6,6 +6,8 @@ require(data.table)
 ## Loading required package: data.table
 require(magrittr)
 
+library(Ckmeans.1d.dp)
+
 shots = read.csv("data/data.csv", stringsAsFactors = T)
 shots$shot_zone_detailed <- NA
 shots$shot_zone_detailed[shots$loc_x <= -220 & shots$loc_y <= 100 & shots$shot_type == "3PT Field Goal"] = "1"
@@ -56,6 +58,13 @@ shots$absolute_angle = apply(shots[,c('loc_x', 'loc_y')], 1, function(vector) {
   atan2(abs(vector[2]), abs(vector[1])) * 180 / pi
 })
 
+### Time
+shots$time <- NA
+shots$time = apply(shots[,c('period', 'minutes_remaining', 'seconds_remaining')], 1, function(vector) {
+  (vector[1] * vector[2]) * 60 + vector[3]
+})
+
+
 shots_numeric = shots
 
 
@@ -72,11 +81,13 @@ shots_numeric$matchup = as.numeric(shots_numeric$matchup)
 shots_numeric$opponent = as.numeric(shots_numeric$opponent)
 shots_numeric$shot_distance_type = as.numeric(shots_numeric$shot_distance_type)
 
+
+
 train = shots[!is.na(shots$shot_made_flag),]
 test = shots[is.na(shots$shot_made_flag),]
 
-train_matrix = data.matrix(train[,c(1:14, 16:29)])
-test_matrix =  data.matrix(test[,c(1:14, 16:29)])
+train_matrix = data.matrix(train[,c(1:14, 16:30)])
+test_matrix =  data.matrix(test[,c(1:14, 16:30)])
 
 param <- list("objective" = "multi:softprob", "eval_metric" = "mlogloss", "num_class" = 2)
 
@@ -89,13 +100,19 @@ bst.cv = xgb.cv(param=param, data = train_matrix, label = train$shot_made_flag, 
 ########################
 
 nround = 50
-bst = xgboost(param=param, data = train_matrix, label = train$shot_made_flag, nrounds=nround)
+bst = xgboost(param=param, data = train_matrix, label = train$shot_made_flag, nrounds=nround, nfold = 300)
+
+bst_importance = xgb.importance(names(train[,c(1:14, 16:30)]), model = bst)
+xgb.plot.importance(bst_importance)
+
+
+
 
 prediction = predict(bst, test_matrix)
 
 prediction = matrix(predict(bst, test_matrix), ncol = 2, byrow = T)
 
-my_solution <- data.frame(shot_id = test$shot_id, shot_made_flag = prediction[,1])
+my_solution <- data.frame(shot_id = test$shot_id, shot_made_flag = prediction[,2])
 
 # Write your solution away to a csv file with the name my_solution.csv
 write.csv(my_solution, file = "my_solution.csv" , row.names = FALSE)

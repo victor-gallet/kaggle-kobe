@@ -5,14 +5,16 @@ output:
     theme: united
 ---
 
-```{r setup, include=FALSE}
+
+```{r setup, include=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 library(ggplot2)
 library(dplyr)
+library('png')
 ```
 
-# Loading Data
+# Chargement des données
 
 ```{r, message = FALSE, warning = FALSE}
 shots = read.csv("data/data.csv", stringsAsFactors = T)
@@ -23,7 +25,11 @@ train = shots[!is.na(shots$shot_made_flag),]
 test = shots[is.na(shots$shot_made_flag),]
 ```
 
-# Exploring Data
+Une fois le chargement des données effectuées dans la variable shots, on peut distinguer deux jeux de données : 
+ - train : les shots où l'on connaît la réussite du tir,
+ - test : les shots où l'on ne connaît pas la réussite du tir.
+
+# Prise de connaissance
 
 ```{r names}
 names(shots)
@@ -37,9 +43,11 @@ summary(shots)
 str(shots)
 ```
 
-## Visualization
+Ces fonctions nous permettent de mieux connaitre notre jeu de données. On voit que l'on a la position du tir sur le terrain, s'il s'agit d'un tir à 2 points, à 3 points, l'équipe adverse, Enormement fournis, le type de tir, etc. Nous reviendrons sur certaines de ces variables plus tard. Une chose remarquable à noter pour une étude statistiques est que il n'y a pas de donnée manquante.
 
-# a plot to see position by feature
+Pour mieux appréhender nos données, une bonne solution est de visualiser nos données. Pour ce faire, nous définissons une fonction qui permet de représenter une variable en fonction de la position du tir sur le terrain.
+
+
 ```{r courtplot}
 courtplot <- function(feat) {
     feat <- substitute(feat)
@@ -47,18 +55,137 @@ courtplot <- function(feat) {
     ggplot(aes(x = lon, y = lat)) +
         geom_point(aes_q(color = feat), alpha = 0.7, size = 3) +
         ylim(c(33.7, 34.0883)) +
-        scale_color_brewer(palette = "Set1") +
         theme_void() +
         ggtitle(paste(feat))
 }
 ```
 
-## Including Plots
+Est-ce qu'il existe un lien fort entre la position du tir et sa réussite ? Voyons ça :
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r courtplot(shot_made_flag)}
+courtplot(shot_made_flag)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Nous obtenons une jolie représentation des tirs! On voit que Kobe Bryant a pris des tirs à peu prés partout sur un demi-terrain. On peut également voir une proéminence de la couleur rouge, qui indique un tir manqué. On peut noté aussi que Kobe a pris quelques "big deeper" et qu'il a y eu plus d'échec que de réussite.
+
+# Exploration des données
+
+## La zone de tir
+
+On dispose d'une variable zone_shot_area. On peut aisément la représenter :
+
+```{r courtplot(shot_zone_area)}
+courtplot(shot_zone_area)
+```
+
+
+On voit que nous n'avons que 6 zones, ce qui est peu. Cinq zones englobent des tirs à 2 et 3 points et la zone "Back Court" n'apparait pas sur le graphique. Les tirs'Back court' sont les tirs pris dans la zone adverse. 
+
+```{r}
+prop.table(table(train$shot_made_flag, train$shot_zone_area), 2)
+```
+
+98% de manqués pour les tirs back court!
+
+Il existe aussi une variable shot_zone_basic :
+
+```{r courtplot(shot_zone_basic)}
+courtplot(shot_zone_basic)
+```
+
+On voit le même problème que précédemment, la zone 'Backcourt' n'est pas représentée et certaines zones sont très larges. 
+
+```{r}
+prop.table(table(train$shot_made_flag, train$shot_zone_basic), 2)
+```
+
+62% de réussite dans la zone 'Restricted Area'. En fouillant sur le site http://stats.nba.com/, on peut trouver une représentation du terrain découpé en 14 zones. 
+
+/!\ Conserver restricted area et backcourt 
+
+On peut alors introduire une nouvelle variable pour avoir un découpage du terrain comme sur l'image. En utilisant les positions du tir, si le tir est à 2 ou 3 points, on peut créer les 14 zones.
+
+```{r shot_zone_detailed}
+train$shot_zone_detailed <- NA
+train$shot_zone_detailed[train$loc_x <= -220 & train$loc_y <= 100 & train$shot_type == "3PT Field Goal"] = "A"
+train$shot_zone_detailed[train$loc_x >= -220 & train$loc_x <= -150 & train$loc_y <= 100 & train$shot_type == "2PT Field Goal"] = "B"
+train$shot_zone_detailed[train$loc_x < -90 & train$shot_type == "3PT Field Goal" & train$loc_y > 100] = "C"
+train$shot_zone_detailed[train$loc_x < 90 & train$loc_x > -90 & train$shot_type == "3PT Field Goal"] = "D"
+
+train$shot_zone_detailed[train$loc_x < 70 & train$loc_x > -70 & train$loc_y > 150 & train$shot_type == "2PT Field Goal"] = "F"
+train$shot_zone_detailed[train$loc_x > 70 & train$shot_type == "3PT Field Goal"] = "G"
+
+train$shot_zone_detailed[train$loc_x < 90 & train$loc_x > -90 & train$loc_y > 90 & train$loc_y < 150 & train$shot_type == "2PT Field Goal"] = "J"
+
+train$shot_zone_detailed[sqrt(train$loc_x^2 + train$loc_y^2) < 90] = "L"
+train$shot_zone_detailed[train$loc_x < 220 & train$loc_x > 150 & train$loc_y <= 100] = "M"
+train$shot_zone_detailed[train$loc_x > 220 & train$loc_y < 100 & train$shot_type == "3PT Field Goal"] = "N"
+
+train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y > 100 & train$loc_x > -210 & train$loc_x < 70] = "E"
+train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y > 100 & train$loc_x >= 70 & train$loc_x < 210] = "H"
+
+train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y <= 100 & train$loc_x < 0] = "I"
+train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y <= 100 & train$loc_x > 0] = "K"
+```
+
+On peut ensuite visualiser cette variable
+
+```{r courtplot(shot_zone_detailed)}
+courtplot(shot_zone_detailed)
+```
+
+Super! Pour le fun, on peut s'intéresser au pourcentage de réussite d'un joueur professionnel sur toute sa carrière. On commence par calculer la moyenne des coordonnées des positions par zone pour pouvoir représenter nos chiffres :
+
+```{r}
+mean_x = aggregate(train$loc_x, list(train$shot_zone_detailed), na.rm = TRUE, mean)
+mean_y = aggregate(train$loc_y, list(train$shot_zone_detailed), na.rm = TRUE, mean)
+mean_xy = data.frame(mean_x$Group.1, mean_x$x, mean_y$x)
+```
+
+On calcule ensuite le pourcentage de réussite par zone, ainsi que le nombre de tirs par zone :
+```{r}
+pourcentage_shot = as.data.frame(prop.table(table(train$shot_made_flag, train$shot_zone_detailed), 2))
+shot_made_by_zone = as.data.frame(table(train$shot_made_flag, train$shot_zone_detailed))
+```
+
+On peut ensuite représenter nos pourcentages :
+```{r}
+courtimg = readPNG('court.png')
+plot(1, type="n", xlab="", ylab="", xlim=c(-235, 235), ylim=c(-30, 400))
+lim <- par()
+rasterImage(courtimg, lim$usr[1], lim$usr[3], lim$usr[2], lim$usr[4])
+grid()
+for (zone in c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N")) {
+  x = mean_xy[mean_xy$mean_x.Group.1 == zone,]$mean_x.x
+  y = mean_xy[mean_xy$mean_x.Group.1 == zone,]$mean_y.x
+  text_pourcentage = pourcentage_shot[pourcentage_shot$Var1 == 1 & pourcentage_shot$Var2 == zone,]$Freq
+  success_shot = shot_made_by_zone[shot_made_by_zone$Var2 == zone & shot_made_by_zone$Var1 == 1,]$Freq
+  missed_shot = shot_made_by_zone[shot_made_by_zone$Var2 == zone & shot_made_by_zone$Var1 == 0,]$Freq
+  text(x, y, sprintf("%d%% \n %d / %d", round(text_pourcentage * 100), success_shot, success_shot + missed_shot))
+}
+```
+
+## Les tirs à 3 points
+
+Black Mamba était-il un shoteur à 3 points comme Stefen Curry ? Au vue des pourcentages de shot précédents, on peut rapidement estimer un pourcentage de 30% de réussite à 3 pts. Vérifions-ça :
+
+```{r}
+prop.table(table(train$shot_made_flag, train$shot_type))
+
+prop.table(table(train$shot_made_flag, train$shot_type), 2)
+```
+Pour approximativement 21% de shots pris à 3 points, 33% de réussite! Pour les tirs à 2pts, 52% de manqués contre 47% de succès. Le tir à 2 pts ne nous aidera pas à déterminer la réussite du tir.
+
+## La distance
+
+Intéressons nous maintenant à la distance de tir. Nous disposons de deux variables pour ce faire : shot_zone_range, shot_distance.
+
+```{r courtplot(shot_zone_range)}
+courtplot(shot_zone_range)
+```
+
+```{r courtplot(shot_zone_range)}
+summary(train$shot_distance)
+
+
+```

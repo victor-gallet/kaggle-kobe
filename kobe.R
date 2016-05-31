@@ -52,25 +52,25 @@ waggplot(season, aes(x=Group.1, y = x)) + geom_bar(stat="identity")  + ylim(0,.5
 
 
 train$shot_zone_detailed <- NA
-train$shot_zone_detailed[train$loc_x <= -220 & train$loc_y <= 100 & train$shot_type == "3PT Field Goal"] = "1"
-train$shot_zone_detailed[train$loc_x >= -220 & train$loc_x <= -150 & train$loc_y <= 100 & train$shot_type == "2PT Field Goal"] = "2"
-train$shot_zone_detailed[train$loc_x < -90 & train$shot_type == "3PT Field Goal" & train$loc_y > 100] = "3"
-train$shot_zone_detailed[train$loc_x < 90 & train$loc_x > -90 & train$shot_type == "3PT Field Goal"] = "4"
+train$shot_zone_detailed[train$loc_x <= -220 & train$loc_y <= 100 & train$shot_type == "3PT Field Goal"] = "A"
+train$shot_zone_detailed[train$loc_x >= -220 & train$loc_x <= -150 & train$loc_y <= 100 & train$shot_type == "2PT Field Goal"] = "B"
+train$shot_zone_detailed[train$loc_x < -90 & train$shot_type == "3PT Field Goal" & train$loc_y > 100] = "C"
+train$shot_zone_detailed[train$loc_x < 90 & train$loc_x > -90 & train$shot_type == "3PT Field Goal"] = "D"
 
-train$shot_zone_detailed[train$loc_x < 70 & train$loc_x > -70 & train$loc_y > 150 & train$shot_type == "2PT Field Goal"] = "6"
-train$shot_zone_detailed[train$loc_x > 70 & train$shot_type == "3PT Field Goal"] = "7"
+train$shot_zone_detailed[train$loc_x < 70 & train$loc_x > -70 & train$loc_y > 150 & train$shot_type == "2PT Field Goal"] = "F"
+train$shot_zone_detailed[train$loc_x > 70 & train$shot_type == "3PT Field Goal"] = "G"
 
-train$shot_zone_detailed[train$loc_x < 90 & train$loc_x > -90 & train$loc_y > 90 & train$loc_y < 150 & train$shot_type == "2PT Field Goal"] = "10"
+train$shot_zone_detailed[train$loc_x < 90 & train$loc_x > -90 & train$loc_y > 90 & train$loc_y < 150 & train$shot_type == "2PT Field Goal"] = "J"
 
-train$shot_zone_detailed[sqrt(train$loc_x^2 + train$loc_y^2) < 90] = "12"
-train$shot_zone_detailed[train$loc_x < 220 & train$loc_x > 150 & train$loc_y <= 100] = "13"
-train$shot_zone_detailed[train$loc_x > 220 & train$loc_y < 100 & train$shot_type == "3PT Field Goal"] = "14"
+train$shot_zone_detailed[sqrt(train$loc_x^2 + train$loc_y^2) < 90] = "L"
+train$shot_zone_detailed[train$loc_x < 220 & train$loc_x > 150 & train$loc_y <= 100] = "M"
+train$shot_zone_detailed[train$loc_x > 220 & train$loc_y < 100 & train$shot_type == "3PT Field Goal"] = "N"
 
-train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y > 100 & train$loc_x > -210 & train$loc_x < 70] = "5"
-train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y > 100 & train$loc_x >= 70 & train$loc_x < 210] = "8"
+train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y > 100 & train$loc_x > -210 & train$loc_x < 70] = "E"
+train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y > 100 & train$loc_x >= 70 & train$loc_x < 210] = "H"
 
-train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y <= 100 & train$loc_x < 0] = "9"
-train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y <= 100 & train$loc_x > 0] = "11"
+train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y <= 100 & train$loc_x < 0] = "I"
+train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y <= 100 & train$loc_x > 0] = "K"
 
 
 train$shot_zone_detailed = as.factor(train$shot_zone_detailed)
@@ -90,7 +90,7 @@ plot(1, type="n", xlab="", ylab="", xlim=c(-235, 235), ylim=c(-30, 400))
 lim <- par()
 rasterImage(courtimg, lim$usr[1], lim$usr[3], lim$usr[2], lim$usr[4])
 grid()
-for (zone in 1:14) {
+for (zone in c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N")) {
   x = mean_xy[mean_xy$mean_x.Group.1 == zone,]$mean_x.x
   y = mean_xy[mean_xy$mean_x.Group.1 == zone,]$mean_y.x
   text_pourcentage = pourcentage_shot[pourcentage_shot$Var1 == 1 & pourcentage_shot$Var2 == zone,]$Freq
