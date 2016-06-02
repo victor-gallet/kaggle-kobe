@@ -100,5 +100,15 @@ for (zone in c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", 
 }
 
 
+pplot <- function(feat) {
+  feat <- substitute(feat)
+  ggplot(data = train, aes_q(x = feat)) +
+    geom_bar(aes(fill = shot_made_flag), stat = "count", position = "fill") +
+    scale_fill_brewer(palette = "Set1", direction = -1) +
+    ggtitle(paste("accuracy by", feat))
+  
+}
+
+
 
 

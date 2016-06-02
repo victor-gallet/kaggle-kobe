@@ -5,6 +5,8 @@ output:
     theme: united
 ---
 
+Etant un amateur de basket-ball mais aussi un amateur de machine-learning, je vous propose de vous présenter les travaux que j'ai pu réaliser pour la compétition kaggle : Kobe Bryant Shot Selection.
+Le but de cette compétition est de prédire la probabilité de réussite aux tirs de Kobe Bryant. Pour ce faire, nous disposons de l'ensemble de ses shots de sa carrière. Ces derniers sont représentés suivant un grand nombre de variables que nous verrons par la suite. Seule une variable est importante à ce stage : 'shot_made_flag' qui nous dit si le shot a été réussi ou non. Elle a pour valeur 0 ou 1 et représente une probabilité. Pour mettre en place la compétition, kaggle a retiré l'information 'shot_made_flag' de 5000 tirs au hasard. A nous d'estimer cette probabilité.
 
 ```{r setup, include=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -43,9 +45,9 @@ summary(shots)
 str(shots)
 ```
 
-Ces fonctions nous permettent de mieux connaitre notre jeu de données. On voit que l'on a la position du tir sur le terrain, s'il s'agit d'un tir à 2 points, à 3 points, l'équipe adverse, Enormement fournis, le type de tir, etc. Nous reviendrons sur certaines de ces variables plus tard. Une chose remarquable à noter pour une étude statistiques est que il n'y a pas de donnée manquante.
+Ces fonctions nous permettent de mieux connaitre notre jeu de données. On voit que l'on a la position du tir sur le terrain, s'il s'agit d'un tir à 2 points, à 3 points, l'équipe adverse, le type de tir, etc. Nous reviendrons sur certaines de ces variables plus tard. Une chose remarquable à noter pour une étude statistiques est que il n'y a pas de donnée manquante.
 
-Pour mieux appréhender nos données, une bonne solution est de visualiser nos données. Pour ce faire, nous définissons une fonction qui permet de représenter une variable en fonction de la position du tir sur le terrain.
+Pour mieux appréhender nos données, une bonne solution est de les visualiser. Pour ce faire, nous définissons une fonction qui permet de représenter une variable en fonction de la position du tir sur le terrain.
 
 
 ```{r courtplot}
@@ -101,9 +103,7 @@ prop.table(table(train$shot_made_flag, train$shot_zone_basic), 2)
 
 62% de réussite dans la zone 'Restricted Area'. En fouillant sur le site http://stats.nba.com/, on peut trouver une représentation du terrain découpé en 14 zones. 
 
-/!\ Conserver restricted area et backcourt 
-
-On peut alors introduire une nouvelle variable pour avoir un découpage du terrain comme sur l'image. En utilisant les positions du tir, si le tir est à 2 ou 3 points, on peut créer les 14 zones.
+On peut alors introduire une nouvelle variable pour avoir un découpage du terrain comme sur l'image. En utilisant les positions du tir, si le tir est à 2 ou 3 points, on peut créer les 14 zones de l'image tout en conservant la zone 'Restricted Area' et 'Backcourt'.
 
 ```{r shot_zone_detailed}
 train$shot_zone_detailed <- NA
@@ -126,6 +126,9 @@ train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y > 100 & t
 
 train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y <= 100 & train$loc_x < 0] = "I"
 train$shot_zone_detailed[is.na(train$shot_zone_detailed) & train$loc_y <= 100 & train$loc_x > 0] = "K"
+
+train$shot_zone_detailed[train$shot_zone_basic == 'Restricted Area'] = "Restricted Area"
+train$shot_zone_detailed[train$shot_zone_basic == 'Backcourt'] = "Backcourt"
 ```
 
 On peut ensuite visualiser cette variable
@@ -155,17 +158,21 @@ plot(1, type="n", xlab="", ylab="", xlim=c(-235, 235), ylim=c(-30, 400))
 lim <- par()
 rasterImage(courtimg, lim$usr[1], lim$usr[3], lim$usr[2], lim$usr[4])
 grid()
-for (zone in c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N")) {
+for (zone in c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "Restricted Area", "Backcourt")) {
   x = mean_xy[mean_xy$mean_x.Group.1 == zone,]$mean_x.x
   y = mean_xy[mean_xy$mean_x.Group.1 == zone,]$mean_y.x
   text_pourcentage = pourcentage_shot[pourcentage_shot$Var1 == 1 & pourcentage_shot$Var2 == zone,]$Freq
   success_shot = shot_made_by_zone[shot_made_by_zone$Var2 == zone & shot_made_by_zone$Var1 == 1,]$Freq
   missed_shot = shot_made_by_zone[shot_made_by_zone$Var2 == zone & shot_made_by_zone$Var1 == 0,]$Freq
-  text(x, y, sprintf("%d%% \n %d / %d", round(text_pourcentage * 100), success_shot, success_shot + missed_shot))
+  if (zone == "Backcourt") {
+    text(0, 390, sprintf("%d%% \n %d / %d", round(text_pourcentage * 100), success_shot, success_shot + missed_shot))
+  } else {
+    text(x, y, sprintf("%d%% \n %d / %d", round(text_pourcentage * 100), success_shot, success_shot + missed_shot))
+  }
 }
 ```
 
-## Les tirs à 3 points
+## Le tir à 3 points
 
 Black Mamba était-il un shoteur à 3 points comme Stefen Curry ? Au vue des pourcentages de shot précédents, on peut rapidement estimer un pourcentage de 30% de réussite à 3 pts. Vérifions-ça :
 
@@ -180,12 +187,148 @@ Pour approximativement 21% de shots pris à 3 points, 33% de réussite! Pour les
 
 Intéressons nous maintenant à la distance de tir. Nous disposons de deux variables pour ce faire : shot_zone_range, shot_distance.
 
-```{r courtplot(shot_zone_range)}
+```{r}
 courtplot(shot_zone_range)
 ```
 
-```{r courtplot(shot_zone_range)}
-summary(train$shot_distance)
+```{r}
+ggplot(data = train, aes_q(x = train$shot_distance)) +
+  geom_bar(aes(fill = shot_made_flag), stat = "count", position = "fill")
+```
+
+On voit clairement que plus le joueur est proche du panier et plus sa réussite est importante.
+
+## Le type d'action
+
+On dispose de deux variables pour représenter le type d'action : 'action_type' et 'combined_shot_type'
+```{r}
+head(train[,c("action_type", "combined_shot_type")])
+```
+
+```{r}
+summary(train$action_type)
+```
+
+Beaucoup d'actions sont répertoriées! Certaines n'ont même jamais été réalisé. Par exemple le 'Turnaround Fadeaway Bank Jump Shot' ou le 'Cutting Finger Roll Layup Shot'. 
+
+```{r}
+summary(train$combined_shot_type)
+```
+
+Il existe beaucoup moins de type d'actions combinées. Kobe a réalisé peu de Hook Shot, c'est à dire un "bras roulé" ni même de Tip Shot qui sont des claquettes en français.
+On peut représenter le pourcentage de réussite suivant le type d'action :
+```{r}
+pourcentage_par_action = prop.table(table(train$action_type, train$shot_made_flag),1)
+pourcentage_par_action = as.data.frame.matrix(pourcentage_par_action)
+pourcentage_par_action = pourcentage_par_action[order(pourcentage_par_action[,"1"]),]
+pourcentage_par_action$action_type = rownames(pourcentage_par_action)
+pourcentage_par_action$evaluation[pourcentage_par_action[, "1"] >= 0.9] = "90% >="
+pourcentage_par_action$evaluation[pourcentage_par_action[, "1"] < 0.9] = "< 90%"
+
+ggplot(data = pourcentage_par_action, aes(x = reorder(action_type, `1`))) +
+  coord_flip() + 
+  geom_bar(aes(y = `1`, fill= evaluation), stat = "identity") +
+  scale_fill_manual(values = c("< 90%" = "darkblue", "90% >=" = "red"))
+```
+
+Les actions rouges représentent celles pour lesquelles il y a plus de 90% de réussite.
+On réitère l'opération avec les actions combinées.
+
+```{r}
+pourcentage_par_action = prop.table(table(train$combined_shot_type, train$shot_made_flag),1)
+pourcentage_par_action = as.data.frame.matrix(pourcentage_par_action)
+pourcentage_par_action = pourcentage_par_action[order(pourcentage_par_action[,"1"]),]
+pourcentage_par_action$action_type = rownames(pourcentage_par_action)
+pourcentage_par_action$evaluation[pourcentage_par_action[, "1"] >= 0.9] = "90% >="
+pourcentage_par_action$evaluation[pourcentage_par_action[, "1"] < 0.9] = "< 90%"
+
+ggplot(data = pourcentage_par_action, aes(x = reorder(action_type, `1`))) +
+  coord_flip() + 
+  geom_bar(aes(y = `1`, fill= evaluation), stat = "identity") +
+  scale_fill_manual(values = c("< 90%" = "darkblue", "90% >=" = "red"))
+```
 
 
+## L'angle de shot
+
+En tant que joueur, je sais très bien que l'angle de tir est important. J'utilise particulièrement les shots à 45° avec la planche. On ne dispose malheureusement pas de la notion d'angle de tir dans notre jeu de données mais il est possible de le calculer. En effet, nous disposons des coordonnées cartésiennnes des tirs où l'origine de notre axe n'est autre que le panier.
+
+On calcule un angle de tir allant de 0 à 360°. En effet, étant donné que notre origine est l'anneau, des tirs ont pu avoir lieu derrière le panier.
+
+```{r}
+train$angle <- NA
+train$angle = apply(train[,c('loc_x', 'loc_y')], 1, function(vector) {
+  atan2(abs(vector[2]), abs(vector[1])) * 180 / pi
+})
+
+train$angle[train$loc_x < 0 & train$loc_y < 0] = 360 - train$angle[train$loc_x < 0 & train$loc_y < 0]
+train$angle[train$loc_x > 0 & train$loc_y > 0] = 180 - train$angle[train$loc_x > 0 & train$loc_y > 0]
+train$angle[train$loc_x > 0 & train$loc_y < 0] = 180 + train$angle[train$loc_x > 0 & train$loc_y < 0]
+
+summary(train$angle)
+```
+
+```{r}
+train$grouped_angle = cut(train$angle, breaks = seq(0, 360, 5), include.lowest=TRUE)
+
+summary(train$grouped_angle)
+
+courtplot(train$grouped_angle)
+```
+
+
+```{r}
+pourcentage_par_angle = prop.table(table(train$grouped_angle, train$shot_made_flag),1)
+pourcentage_par_angle = as.data.frame.matrix(pourcentage_par_angle)
+pourcentage_par_angle = pourcentage_par_angle[order(pourcentage_par_angle[,"1"]),]
+pourcentage_par_angle$grouped_angle = rownames(pourcentage_par_angle)
+pourcentage_par_angle$evaluation[pourcentage_par_angle[, "1"] >= 0.9] = "90% >="
+pourcentage_par_angle$evaluation[pourcentage_par_angle[, "1"] < 0.9] = "< 90%"
+
+ggplot(data = pourcentage_par_angle, aes(x = reorder(grouped_angle, `1`))) +
+  coord_flip() + 
+  geom_bar(aes(y = `1`, fill= evaluation), stat = "identity") +
+  scale_fill_manual(values = c("< 90%" = "darkblue", "90% >=" = "red"))
+```
+
+Inspectons les shots qui ont un taux de réussite supérieur à 90%, c'est à dire pour un angle compris entre 225 et 325.
+
+```{r}
+temporary_train = train[train$angle ==135,]
+nrow(temporary_train)
+```
+
+Ici, on calcule un angle que je nomme 'absolue', c'est à dire que l'on aura le même angle à gauche ou à droite du panier. 
+
+```{r}
+train$absolute_angle <- NA
+train$absolute_angle = apply(train[,c('loc_x', 'loc_y')], 1, function(vector) {
+  atan2(abs(vector[2]), abs(vector[1])) * 180 / pi
+})
+
+summary(train$absolute_angle)
+```
+
+```{r}
+train$grouped_absolute_angle = cut(train$absolute_angle, breaks = seq(0, 90, 5), include.lowest=TRUE)
+
+summary(train$grouped_absolute_angle)
+
+courtplot(train$grouped_absolute_angle)
+```
+
+Cool! On a un jolie arc-en-ciel. Calculons maintenant les pourcentages de réussite aux tirs.
+
+```{r}
+pourcentage_par_angle = prop.table(table(train$grouped_absolute_angle, train$shot_made_flag),1)
+pourcentage_par_angle = as.data.frame.matrix(pourcentage_par_angle)
+pourcentage_par_angle = pourcentage_par_angle[order(pourcentage_par_angle[,"1"]),]
+pourcentage_par_angle$grouped_angle = rownames(pourcentage_par_angle)
+pourcentage_par_angle$evaluation[pourcentage_par_angle[, "1"] >= 0.9] = "90% >="
+pourcentage_par_angle$evaluation[pourcentage_par_angle[, "1"] < 0.9] = "< 90%"
+
+ggplot(data = pourcentage_par_angle, aes(x = reorder(grouped_angle, `1`))) +
+  coord_flip() + 
+  geom_bar(aes(y = `1`, fill= evaluation), stat = "identity") +
+  scale_fill_manual(values = c("< 90%" = "darkblue", "90% >=" = "red"))
 ```
